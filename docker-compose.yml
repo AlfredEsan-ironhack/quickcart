@@ -10,6 +10,7 @@ services:
       - "127.0.0.1:5433:5432"
     volumes:
       - quickcart_pgdata:/var/lib/postgresql/data
+      - ./data/raw:/data/raw:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
