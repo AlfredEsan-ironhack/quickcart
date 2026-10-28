@@ -1,4 +1,5 @@
 services:
+  # The data warehouse: raw, clean, analytics and ops schemas
   postgres:
     image: postgres:16
     container_name: quickcart-postgres
@@ -18,5 +19,54 @@ services:
       retries: 10
     restart: unless-stopped
 
+  # Airflow's own bookkeeping database (DAG runs, task states). Kept apart from the warehouse.
+  airflow-db:
+    image: postgres:16
+    container_name: quickcart-airflow-db
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # The orchestrator: runs the pipeline every day and shows it in a web UI
+  airflow:
+    build:
+      context: .
+      dockerfile: airflow/Dockerfile
+    image: quickcart-airflow:3.3.2
+    container_name: quickcart-airflow
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-db:
+        condition: service_healthy
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      # How the pipeline code reaches the warehouse from inside Docker
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      PYTHONDONTWRITEBYTECODE: "1"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - .:/opt/quickcart:ro
+    ports:
+      - "127.0.0.1:8081:8080"
+    command: standalone
+    restart: unless-stopped
+
 volumes:
   quickcart_pgdata:
+  airflow_pgdata:
