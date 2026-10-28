@@ -1,0 +1,122 @@
+=== Building ops.perf_orders: 2,000,000 synthetic orders ...
+ setseed 
+---------
+ 
+(1 row)
+
+DROP TABLE
+SELECT 2000000
+ANALYZE
+
+=== TEST 1: one customer's orders (a customer-support screen) - NO index
+                                     QUERY PLAN                                      
+-------------------------------------------------------------------------------------
+ Gather (actual time=6.453..145.368 rows=18 loops=1)
+   Workers Planned: 2
+   Workers Launched: 2
+   ->  Parallel Seq Scan on perf_orders (actual time=16.897..109.517 rows=6 loops=3)
+         Filter: (customer_id = 4242)
+         Rows Removed by Filter: 666661
+ Planning Time: 0.171 ms
+ Execution Time: 145.459 ms
+(8 rows)
+
+=== TEST 2: one week of sales (a weekly report) - NO index
+                                                  QUERY PLAN                                                   
+---------------------------------------------------------------------------------------------------------------
+ Finalize GroupAggregate (actual time=97.084..100.743 rows=7 loops=1)
+   Group Key: order_date
+   ->  Gather Merge (actual time=97.059..100.705 rows=17 loops=1)
+         Workers Planned: 2
+         Workers Launched: 2
+         ->  Sort (actual time=78.745..78.746 rows=6 loops=3)
+               Sort Key: order_date
+               Sort Method: quicksort  Memory: 25kB
+               Worker 0:  Sort Method: quicksort  Memory: 25kB
+               Worker 1:  Sort Method: quicksort  Memory: 25kB
+               ->  Partial HashAggregate (actual time=78.713..78.719 rows=6 loops=3)
+                     Group Key: order_date
+                     Batches: 1  Memory Usage: 73kB
+                     Worker 0:  Batches: 1  Memory Usage: 73kB
+                     Worker 1:  Batches: 1  Memory Usage: 73kB
+                     ->  Parallel Seq Scan on perf_orders (actual time=34.694..76.072 rows=4636 loops=3)
+                           Filter: ((order_date >= '2025-03-01'::date) AND (order_date <= '2025-03-07'::date))
+                           Rows Removed by Filter: 662030
+ Planning Time: 0.354 ms
+ Execution Time: 100.814 ms
+(20 rows)
+
+=== FIX: add indexes on the columns we filter by
+CREATE INDEX
+CREATE INDEX
+ANALYZE
+=== TEST 1 again - WITH index
+                                       QUERY PLAN                                        
+-----------------------------------------------------------------------------------------
+ Bitmap Heap Scan on perf_orders (actual time=0.103..0.439 rows=18 loops=1)
+   Recheck Cond: (customer_id = 4242)
+   Heap Blocks: exact=18
+   ->  Bitmap Index Scan on idx_perf_customer (actual time=0.091..0.091 rows=18 loops=1)
+         Index Cond: (customer_id = 4242)
+ Planning Time: 0.218 ms
+ Execution Time: 0.555 ms
+(7 rows)
+
+=== TEST 2 again - WITH index
+                                            QUERY PLAN                                             
+---------------------------------------------------------------------------------------------------
+ GroupAggregate (actual time=1.182..6.963 rows=7 loops=1)
+   Group Key: order_date
+   ->  Index Scan using idx_perf_date on perf_orders (actual time=0.065..2.915 rows=13909 loops=1)
+         Index Cond: ((order_date >= '2025-03-01'::date) AND (order_date <= '2025-03-07'::date))
+ Planning Time: 0.105 ms
+ Execution Time: 6.980 ms
+(6 rows)
+
+
+=== TEST 3: a dashboard showing revenue for every day - calculated live from 2M rows
+                                                QUERY PLAN                                                
+----------------------------------------------------------------------------------------------------------
+ Finalize GroupAggregate (actual time=326.490..331.345 rows=1000 loops=1)
+   Group Key: order_date
+   ->  Gather Merge (actual time=326.482..330.183 rows=2675 loops=1)
+         Workers Planned: 2
+         Workers Launched: 2
+         ->  Sort (actual time=307.758..307.832 rows=892 loops=3)
+               Sort Key: order_date
+               Sort Method: quicksort  Memory: 108kB
+               Worker 0:  Sort Method: quicksort  Memory: 107kB
+               Worker 1:  Sort Method: quicksort  Memory: 109kB
+               ->  Partial HashAggregate (actual time=306.978..307.476 rows=892 loops=3)
+                     Group Key: order_date
+                     Batches: 1  Memory Usage: 577kB
+                     Worker 0:  Batches: 1  Memory Usage: 577kB
+                     Worker 1:  Batches: 1  Memory Usage: 577kB
+                     ->  Parallel Seq Scan on perf_orders (actual time=0.048..63.555 rows=666667 loops=3)
+ Planning Time: 0.097 ms
+ Execution Time: 331.441 ms
+(18 rows)
+
+=== FIX: pre-aggregate once (this is what our agg_daily_sales table does)
+SELECT 1000
+ALTER TABLE
+ANALYZE
+=== TEST 3 again - the dashboard reads the ready-made summary
+                                QUERY PLAN                                 
+---------------------------------------------------------------------------
+ Seq Scan on perf_daily_sales (actual time=0.010..0.420 rows=1000 loops=1)
+ Planning Time: 0.856 ms
+ Execution Time: 0.455 ms
+(3 rows)
+
+
+=== TEST 4: storage - the same 2M rows stored as text (like raw) vs proper types (like clean)
+SELECT 2000000
+       version        |  size  
+----------------------+--------
+ stored as TEXT       | 131 MB
+ stored as real types | 115 MB
+(2 rows)
+
+=== Cleaning up the demo tables
+DROP TABLE
