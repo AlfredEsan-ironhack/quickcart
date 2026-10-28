@@ -1,0 +1,33 @@
+flowchart LR
+    SRC["1 · Source files<br/>customers.csv · orders.csv<br/>products.csv · clickstream.csv"]
+
+    subgraph WH["PostgreSQL 16 warehouse (Docker)"]
+        direction LR
+        RAW["2 · raw<br/>exact copy, all TEXT<br/>+ _row_num, _loaded_at"]
+        CLEAN["3 · clean<br/>typed tables with<br/>PRIMARY / FOREIGN KEY, CHECK<br/>customers · products<br/>orders · clickstream"]
+        OPS["ops<br/>clickstream_rejected<br/>(quarantine, 37 rows)"]
+        AN["4 · analytics<br/>star schema:<br/>dim_customer · dim_product<br/>fct_orders<br/>pre-aggregated:<br/>agg_daily_sales<br/>agg_product_performance<br/>agg_customer_value<br/>agg_web_activity_daily"]
+    end
+
+    OUT["5 · Dashboards and<br/>business questions<br/>sql/08"]
+
+    SRC -->|"COPY<br/>02_load_raw.sql"| RAW
+    RAW -->|"SQL · 03_clean_core.sql"| CLEAN
+    RAW -->|"pandas · clean_clickstream.py"| CLEAN
+    RAW -.->|"event_id collisions"| OPS
+    CLEAN -->|"SQL · 05_build_analytics.sql<br/>+ 06_indexes.sql"| AN
+    AN --> OUT
+
+    AF["Apache Airflow 3.3.2<br/>DAG quickcart_pipeline<br/>daily 06:00 · 2 retries<br/>runs steps 2 → 4 in order"]
+    QG["Quality gate<br/>quality_checks.py · 7 checks<br/>run fails if numbers<br/>don't add up"]
+    AF -.->|"orchestrates"| RAW
+    AN -.->|"checked by"| QG
+
+    classDef layer fill:#eef4ff,stroke:#3b6fd8,color:#111
+    classDef side fill:#fff4e5,stroke:#d98a00,color:#111
+    classDef ctrl fill:#eafaf0,stroke:#2e9e5b,color:#111
+    classDef io fill:#f5f5f5,stroke:#777,color:#111
+    class RAW,CLEAN,AN layer
+    class OPS side
+    class AF,QG ctrl
+    class SRC,OUT io
