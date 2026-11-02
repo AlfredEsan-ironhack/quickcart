@@ -1,0 +1,152 @@
+
+===== Q4 check 1: every table and its primary key =====
+      table_name       |       primary_key        
+-----------------------+--------------------------
+ addresses             | address_id
+ agents                | agent_id
+ carriers              | carrier_id
+ customers             | customer_id
+ inventory             | warehouse_id, product_id
+ inventory_movements   | movement_id
+ orders                | order_id
+ products              | product_id
+ shipment_events       | event_id
+ shipment_items        | shipment_id, order_id
+ shipment_statuses     | status_code
+ shipments             | shipment_id
+ teams                 | team_id
+ ticket_categories     | category_id
+ ticket_messages       | message_id
+ ticket_priorities     | priority_id
+ ticket_status_history | history_id
+ ticket_statuses       | status_code
+ tickets               | ticket_id
+ warehouses            | warehouse_id
+(20 rows)
+
+
+===== Q4 check 2: every foreign key (child column -> parent table) =====
+         child_table          |                                     foreign_key                                      
+------------------------------+--------------------------------------------------------------------------------------
+ lab_q4.agents                | FOREIGN KEY (team_id) REFERENCES lab_q4.teams(team_id)
+ lab_q4.inventory             | FOREIGN KEY (product_id) REFERENCES lab_q4.products(product_id)
+ lab_q4.inventory             | FOREIGN KEY (warehouse_id) REFERENCES lab_q4.warehouses(warehouse_id)
+ lab_q4.inventory_movements   | FOREIGN KEY (order_id) REFERENCES lab_q4.orders(order_id)
+ lab_q4.inventory_movements   | FOREIGN KEY (product_id) REFERENCES lab_q4.products(product_id)
+ lab_q4.inventory_movements   | FOREIGN KEY (warehouse_id) REFERENCES lab_q4.warehouses(warehouse_id)
+ lab_q4.orders                | FOREIGN KEY (customer_id) REFERENCES lab_q4.customers(customer_id)
+ lab_q4.orders                | FOREIGN KEY (product_id) REFERENCES lab_q4.products(product_id)
+ lab_q4.shipment_events       | FOREIGN KEY (shipment_id) REFERENCES lab_q4.shipments(shipment_id) ON DELETE CASCADE
+ lab_q4.shipment_events       | FOREIGN KEY (status_code) REFERENCES lab_q4.shipment_statuses(status_code)
+ lab_q4.shipment_items        | FOREIGN KEY (order_id) REFERENCES lab_q4.orders(order_id)
+ lab_q4.shipment_items        | FOREIGN KEY (shipment_id) REFERENCES lab_q4.shipments(shipment_id) ON DELETE CASCADE
+ lab_q4.shipments             | FOREIGN KEY (carrier_id) REFERENCES lab_q4.carriers(carrier_id)
+ lab_q4.shipments             | FOREIGN KEY (destination_address_id) REFERENCES lab_q4.addresses(address_id)
+ lab_q4.shipments             | FOREIGN KEY (origin_address_id) REFERENCES lab_q4.addresses(address_id)
+ lab_q4.ticket_messages       | FOREIGN KEY (author_agent_id) REFERENCES lab_q4.agents(agent_id)
+ lab_q4.ticket_messages       | FOREIGN KEY (author_customer_id) REFERENCES lab_q4.customers(customer_id)
+ lab_q4.ticket_messages       | FOREIGN KEY (ticket_id) REFERENCES lab_q4.tickets(ticket_id) ON DELETE CASCADE
+ lab_q4.tickets               | FOREIGN KEY (assigned_agent_id) REFERENCES lab_q4.agents(agent_id)
+ lab_q4.tickets               | FOREIGN KEY (category_id) REFERENCES lab_q4.ticket_categories(category_id)
+ lab_q4.tickets               | FOREIGN KEY (customer_id) REFERENCES lab_q4.customers(customer_id)
+ lab_q4.tickets               | FOREIGN KEY (order_id) REFERENCES lab_q4.orders(order_id)
+ lab_q4.tickets               | FOREIGN KEY (priority_id) REFERENCES lab_q4.ticket_priorities(priority_id)
+ lab_q4.tickets               | FOREIGN KEY (status_code) REFERENCES lab_q4.ticket_statuses(status_code)
+ lab_q4.ticket_status_history | FOREIGN KEY (changed_by_agent_id) REFERENCES lab_q4.agents(agent_id)
+ lab_q4.ticket_status_history | FOREIGN KEY (new_status) REFERENCES lab_q4.ticket_statuses(status_code)
+ lab_q4.ticket_status_history | FOREIGN KEY (old_status) REFERENCES lab_q4.ticket_statuses(status_code)
+ lab_q4.ticket_status_history | FOREIGN KEY (ticket_id) REFERENCES lab_q4.tickets(ticket_id) ON DELETE CASCADE
+ lab_q4.warehouses            | FOREIGN KEY (address_id) REFERENCES lab_q4.addresses(address_id)
+(29 rows)
+
+
+===== Q4 check 3: every CHECK and UNIQUE rule =====
+         table_name         | rule_type |                                                                        rule                                                                         
+----------------------------+-----------+-----------------------------------------------------------------------------------------------------------------------------------------------------
+ lab_q4.agents              | UNIQUE    | UNIQUE (email)
+ lab_q4.carriers            | UNIQUE    | UNIQUE (carrier_name)
+ lab_q4.inventory           | CHECK     | CHECK ((quantity_on_hand >= 0))
+ lab_q4.inventory           | CHECK     | CHECK ((quantity_reserved >= 0))
+ lab_q4.inventory           | CHECK     | CHECK ((quantity_reserved <= quantity_on_hand))
+ lab_q4.inventory           | CHECK     | CHECK ((reorder_level >= 0))
+ lab_q4.inventory_movements | CHECK     | CHECK ((movement_type = ANY (ARRAY['receipt'::text, 'sale'::text, 'return'::text, 'adjustment'::text, 'transfer_in'::text, 'transfer_out'::text])))
+ lab_q4.inventory_movements | CHECK     | CHECK ((quantity_delta <> 0))
+ lab_q4.shipment_items      | CHECK     | CHECK ((quantity_shipped > 0))
+ lab_q4.shipments           | CHECK     | CHECK (((delivered_at IS NULL) OR (shipped_at IS NULL) OR (delivered_at >= shipped_at)))
+ lab_q4.shipments           | UNIQUE    | UNIQUE (carrier_id, tracking_number)
+ lab_q4.teams               | UNIQUE    | UNIQUE (team_name)
+ lab_q4.ticket_categories   | UNIQUE    | UNIQUE (category_name)
+ lab_q4.ticket_messages     | CHECK     | CHECK ((num_nonnulls(author_customer_id, author_agent_id) <= 1))
+ lab_q4.ticket_priorities   | CHECK     | CHECK ((sla_hours > 0))
+ lab_q4.ticket_priorities   | UNIQUE    | UNIQUE (priority_name)
+ lab_q4.tickets             | CHECK     | CHECK (((resolved_at IS NULL) OR (resolved_at >= created_at)))
+ lab_q4.warehouses          | UNIQUE    | UNIQUE (warehouse_name)
+(18 rows)
+
+
+===== Q4 check 4: every index =====
+       tablename       |                indexname                 |                                                                  indexdef                                                                  
+-----------------------+------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------
+ addresses             | addresses_pkey                           | CREATE UNIQUE INDEX addresses_pkey ON lab_q4.addresses USING btree (address_id)
+ agents                | agents_email_key                         | CREATE UNIQUE INDEX agents_email_key ON lab_q4.agents USING btree (email)
+ agents                | agents_pkey                              | CREATE UNIQUE INDEX agents_pkey ON lab_q4.agents USING btree (agent_id)
+ agents                | idx_agents_team                          | CREATE INDEX idx_agents_team ON lab_q4.agents USING btree (team_id)
+ carriers              | carriers_carrier_name_key                | CREATE UNIQUE INDEX carriers_carrier_name_key ON lab_q4.carriers USING btree (carrier_name)
+ carriers              | carriers_pkey                            | CREATE UNIQUE INDEX carriers_pkey ON lab_q4.carriers USING btree (carrier_id)
+ customers             | customers_pkey                           | CREATE UNIQUE INDEX customers_pkey ON lab_q4.customers USING btree (customer_id)
+ inventory             | idx_inventory_low_stock                  | CREATE INDEX idx_inventory_low_stock ON lab_q4.inventory USING btree (warehouse_id, product_id) WHERE (quantity_on_hand <= reorder_level)
+ inventory             | idx_inventory_product                    | CREATE INDEX idx_inventory_product ON lab_q4.inventory USING btree (product_id)
+ inventory             | inventory_pkey                           | CREATE UNIQUE INDEX inventory_pkey ON lab_q4.inventory USING btree (warehouse_id, product_id)
+ inventory_movements   | idx_movements_order                      | CREATE INDEX idx_movements_order ON lab_q4.inventory_movements USING btree (order_id) WHERE (order_id IS NOT NULL)
+ inventory_movements   | idx_movements_product_ts                 | CREATE INDEX idx_movements_product_ts ON lab_q4.inventory_movements USING btree (product_id, created_at DESC)
+ inventory_movements   | idx_movements_warehouse_ts               | CREATE INDEX idx_movements_warehouse_ts ON lab_q4.inventory_movements USING btree (warehouse_id, created_at DESC)
+ inventory_movements   | inventory_movements_pkey                 | CREATE UNIQUE INDEX inventory_movements_pkey ON lab_q4.inventory_movements USING btree (movement_id)
+ orders                | idx_lab_orders_customer                  | CREATE INDEX idx_lab_orders_customer ON lab_q4.orders USING btree (customer_id)
+ orders                | idx_lab_orders_product                   | CREATE INDEX idx_lab_orders_product ON lab_q4.orders USING btree (product_id)
+ orders                | orders_pkey                              | CREATE UNIQUE INDEX orders_pkey ON lab_q4.orders USING btree (order_id)
+ products              | products_pkey                            | CREATE UNIQUE INDEX products_pkey ON lab_q4.products USING btree (product_id)
+ shipment_events       | idx_events_shipment_ts                   | CREATE INDEX idx_events_shipment_ts ON lab_q4.shipment_events USING btree (shipment_id, event_ts DESC)
+ shipment_events       | idx_events_ts_brin                       | CREATE INDEX idx_events_ts_brin ON lab_q4.shipment_events USING brin (event_ts)
+ shipment_events       | shipment_events_pkey                     | CREATE UNIQUE INDEX shipment_events_pkey ON lab_q4.shipment_events USING btree (event_id)
+ shipment_items        | idx_shipment_items_order                 | CREATE INDEX idx_shipment_items_order ON lab_q4.shipment_items USING btree (order_id)
+ shipment_items        | shipment_items_pkey                      | CREATE UNIQUE INDEX shipment_items_pkey ON lab_q4.shipment_items USING btree (shipment_id, order_id)
+ shipment_statuses     | shipment_statuses_pkey                   | CREATE UNIQUE INDEX shipment_statuses_pkey ON lab_q4.shipment_statuses USING btree (status_code)
+ shipments             | idx_shipments_dest                       | CREATE INDEX idx_shipments_dest ON lab_q4.shipments USING btree (destination_address_id)
+ shipments             | idx_shipments_open                       | CREATE INDEX idx_shipments_open ON lab_q4.shipments USING btree (estimated_delivery) WHERE (delivered_at IS NULL)
+ shipments             | shipments_carrier_id_tracking_number_key | CREATE UNIQUE INDEX shipments_carrier_id_tracking_number_key ON lab_q4.shipments USING btree (carrier_id, tracking_number)
+ shipments             | shipments_pkey                           | CREATE UNIQUE INDEX shipments_pkey ON lab_q4.shipments USING btree (shipment_id)
+ teams                 | teams_pkey                               | CREATE UNIQUE INDEX teams_pkey ON lab_q4.teams USING btree (team_id)
+ teams                 | teams_team_name_key                      | CREATE UNIQUE INDEX teams_team_name_key ON lab_q4.teams USING btree (team_name)
+ ticket_categories     | ticket_categories_category_name_key      | CREATE UNIQUE INDEX ticket_categories_category_name_key ON lab_q4.ticket_categories USING btree (category_name)
+ ticket_categories     | ticket_categories_pkey                   | CREATE UNIQUE INDEX ticket_categories_pkey ON lab_q4.ticket_categories USING btree (category_id)
+ ticket_messages       | idx_messages_ticket                      | CREATE INDEX idx_messages_ticket ON lab_q4.ticket_messages USING btree (ticket_id, created_at)
+ ticket_messages       | ticket_messages_pkey                     | CREATE UNIQUE INDEX ticket_messages_pkey ON lab_q4.ticket_messages USING btree (message_id)
+ ticket_priorities     | ticket_priorities_pkey                   | CREATE UNIQUE INDEX ticket_priorities_pkey ON lab_q4.ticket_priorities USING btree (priority_id)
+ ticket_priorities     | ticket_priorities_priority_name_key      | CREATE UNIQUE INDEX ticket_priorities_priority_name_key ON lab_q4.ticket_priorities USING btree (priority_name)
+ ticket_status_history | idx_history_ticket                       | CREATE INDEX idx_history_ticket ON lab_q4.ticket_status_history USING btree (ticket_id, changed_at)
+ ticket_status_history | ticket_status_history_pkey               | CREATE UNIQUE INDEX ticket_status_history_pkey ON lab_q4.ticket_status_history USING btree (history_id)
+ ticket_statuses       | ticket_statuses_pkey                     | CREATE UNIQUE INDEX ticket_statuses_pkey ON lab_q4.ticket_statuses USING btree (status_code)
+ tickets               | idx_tickets_agent_open                   | CREATE INDEX idx_tickets_agent_open ON lab_q4.tickets USING btree (assigned_agent_id, priority_id, created_at) WHERE (resolved_at IS NULL)
+ tickets               | idx_tickets_category                     | CREATE INDEX idx_tickets_category ON lab_q4.tickets USING btree (category_id)
+ tickets               | idx_tickets_customer                     | CREATE INDEX idx_tickets_customer ON lab_q4.tickets USING btree (customer_id, created_at DESC)
+ tickets               | idx_tickets_order                        | CREATE INDEX idx_tickets_order ON lab_q4.tickets USING btree (order_id) WHERE (order_id IS NOT NULL)
+ tickets               | idx_tickets_status_prio                  | CREATE INDEX idx_tickets_status_prio ON lab_q4.tickets USING btree (status_code, priority_id, created_at)
+ tickets               | tickets_pkey                             | CREATE UNIQUE INDEX tickets_pkey ON lab_q4.tickets USING btree (ticket_id)
+ warehouses            | warehouses_pkey                          | CREATE UNIQUE INDEX warehouses_pkey ON lab_q4.warehouses USING btree (warehouse_id)
+ warehouses            | warehouses_warehouse_name_key            | CREATE UNIQUE INDEX warehouses_warehouse_name_key ON lab_q4.warehouses USING btree (warehouse_name)
+(47 rows)
+
+
+===== Q4 check 5: totals =====
+ tables | foreign_keys | indexes 
+--------+--------------+---------
+     20 |           29 |      47
+(1 row)
+
+
+===== Q4 check 6: the pipeline is safe =====
+(must return 0 rows: nothing in lab_q4 depends on the pipeline tables)
+ lab_table | pipeline_table 
+-----------+----------------
+(0 rows)
+

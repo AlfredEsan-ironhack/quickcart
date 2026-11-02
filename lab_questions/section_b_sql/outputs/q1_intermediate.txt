@@ -1,0 +1,114 @@
+
+===== Q1.1 Top 10 customers by revenue =====
+ customer_id |      customer_name      |    city    | revenue  | paid_orders 
+-------------+-------------------------+------------+----------+-------------
+          65 | Mr Matthew Hunt         | Manchester | 27629.00 |           7
+          74 | Mrs Lesley Charlton     | Warsaw     | 27622.00 |           7
+          86 | Liam Sykes              | Manchester | 26698.00 |           7
+          90 | Mr Russell Jennings     | Manchester | 26488.00 |           3
+          98 | Louise Jackson-Robinson | Paris      | 24281.00 |           7
+          23 | Bernard Wilkins         | Rome       | 24091.00 |           5
+          91 | Dr Hollie Taylor        | Berlin     | 21646.00 |           4
+          34 | Aimee Burns             | Madrid     | 21087.00 |           4
+          44 | Eric O'Neill            | Berlin     | 19882.00 |           5
+          12 | Sean Norton             | Lisbon     | 16988.00 |           3
+(10 rows)
+
+
+===== Q1.2 Month-over-month sales growth =====
+   month    |  sales   | prev_sales | mom_growth_pct 
+------------+----------+------------+----------------
+ 2024-09-01 | 10694.00 |            |               
+ 2024-10-01 | 10794.00 |   10694.00 |           0.94
+ 2024-11-01 |  3998.00 |   10794.00 |         -62.96
+ 2024-12-01 |   745.00 |    3998.00 |         -81.37
+ 2025-01-01 | 15843.00 |     745.00 |        2026.58
+ 2025-02-01 | 12238.00 |   15843.00 |         -22.75
+ 2025-03-01 |  7952.00 |   12238.00 |         -35.02
+ 2025-04-01 |  8136.00 |    7952.00 |           2.31
+ 2025-05-01 | 26485.00 |    8136.00 |         225.53
+ 2025-06-01 |  8410.00 |   26485.00 |         -68.25
+ 2025-07-01 |  5990.00 |    8410.00 |         -28.78
+ 2025-08-01 | 23331.00 |    5990.00 |         289.50
+ 2025-09-01 | 35087.00 |   23331.00 |          50.39
+ 2025-10-01 |  8038.00 |   35087.00 |         -77.09
+ 2025-11-01 | 37000.00 |    8038.00 |         360.31
+ 2025-12-01 | 33192.00 |   37000.00 |         -10.29
+ 2026-01-01 | 43423.00 |   33192.00 |          30.82
+ 2026-02-01 | 53329.00 |   43423.00 |          22.81
+ 2026-03-01 | 60901.00 |   53329.00 |          14.20
+ 2026-04-01 | 50308.00 |   60901.00 |         -17.39
+ 2026-05-01 | 23227.00 |   50308.00 |         -53.83
+ 2026-06-01 | 44895.00 |   23227.00 |          93.29
+ 2026-07-01 | 38525.00 |   44895.00 |         -14.19
+ 2026-08-01 | 61404.00 |   38525.00 |          59.39
+ 2026-09-01 | 34608.00 |   61404.00 |         -43.64
+ 2026-10-01 | 35842.00 |   34608.00 |           3.57
+ 2026-11-01 |  1797.00 |   35842.00 |         -94.99
+(27 rows)
+
+
+===== Q1.3 Customers who ordered in consecutive months =====
+ customer_id |      customer_name      | consecutive_month_pairs | first_consecutive_month 
+-------------+-------------------------+-------------------------+-------------------------
+          74 | Mrs Lesley Charlton     |                       5 | 2025-12-01
+           3 | Samuel Wright           |                       3 | 2026-02-01
+          19 | Miss Frances Holmes     |                       3 | 2026-06-01
+          24 | Leonard Powell-Morris   |                       3 | 2026-02-01
+          43 | Dean Matthews-Davies    |                       3 | 2025-06-01
+          65 | Mr Matthew Hunt         |                       3 | 2025-10-01
+          98 | Louise Jackson-Robinson |                       3 | 2024-12-01
+          17 | Diana Cross-Miah        |                       2 | 2026-04-01
+          23 | Bernard Wilkins         |                       2 | 2025-01-01
+          33 | Wayne Page-Carter       |                       2 | 2025-08-01
+          41 | Holly Hill              |                       2 | 2025-12-01
+          55 | Kirsty Akhtar           |                       2 | 2026-09-01
+          73 | Sara Dobson             |                       2 | 2025-10-01
+          79 | Sylvia Kelly-Ward       |                       2 | 2026-01-01
+          83 | Amanda Cox-Fisher       |                       2 | 2026-04-01
+          91 | Dr Hollie Taylor        |                       2 | 2026-03-01
+           1 | William Jennings        |                       1 | 2025-09-01
+           4 | Gillian Barnes          |                       1 | 2026-04-01
+           8 | Gillian Andrews         |                       1 | 2025-07-01
+          10 | Wayne Gough             |                       1 | 2026-06-01
+          16 | Dr Jonathan Middleton   |                       1 | 2026-04-01
+          27 | Mr Martin Johnson       |                       1 | 2026-04-01
+          30 | Bethan Atkinson         |                       1 | 2026-03-01
+          34 | Aimee Burns             |                       1 | 2026-03-01
+          35 | Nigel Gould             |                       1 | 2026-06-01
+          36 | Arthur Bell             |                       1 | 2026-03-01
+          44 | Eric O'Neill            |                       1 | 2025-11-01
+          58 | Joanne Bennett          |                       1 | 2026-06-01
+          59 | Yvonne Jones            |                       1 | 2026-10-01
+          61 | Carole Hussain-Booth    |                       1 | 2026-02-01
+          69 | Miss Danielle Martin    |                       1 | 2026-07-01
+          70 | Holly Byrne             |                       1 | 2026-07-01
+          76 | Christopher King        |                       1 | 2026-03-01
+          86 | Liam Sykes              |                       1 | 2026-07-01
+          90 | Mr Russell Jennings     |                       1 | 2026-09-01
+          97 | Roger Singh             |                       1 | 2026-02-01
+(36 rows)
+
+
+===== Q1.4 Products never ordered =====
+ product_id | product_name | category 
+------------+--------------+----------
+(0 rows)
+
+
+===== Q1.4b Products with no paid, actual sale =====
+ product_id | product_name | category 
+------------+--------------+----------
+(0 rows)
+
+
+===== Q1.5 Revenue contribution % by category =====
+   category    |  revenue  | pct_of_total 
+---------------+-----------+--------------
+ Electronics   | 335815.00 |        48.24
+ Furniture     | 296641.00 |        42.61
+ Accessories   |  42914.00 |         6.16
+ Home & Living |  12367.00 |         1.78
+ Stationery    |   8455.00 |         1.21
+(5 rows)
+

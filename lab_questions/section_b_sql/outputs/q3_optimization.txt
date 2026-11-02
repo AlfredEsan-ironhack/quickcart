@@ -1,0 +1,146 @@
+
+===== Q3 part 1: how big are the real tables? =====
+   table_name    | row_count | size_incl_indexes 
+-----------------+-----------+-------------------
+ clean.orders    |       500 | 184 kB
+ clean.customers |       100 | 80 kB
+(2 rows)
+
+--- indexes that already exist on clean.orders (from sql/06_indexes.sql) ---
+      indexname       |                                                     indexdef                                                     
+----------------------+------------------------------------------------------------------------------------------------------------------
+ idx_orders_customer  | CREATE INDEX idx_orders_customer ON clean.orders USING btree (customer_id)
+ idx_orders_date      | CREATE INDEX idx_orders_date ON clean.orders USING btree (order_date)
+ idx_orders_paid_date | CREATE INDEX idx_orders_paid_date ON clean.orders USING btree (order_date) WHERE (payment_status = 'paid'::text)
+ idx_orders_product   | CREATE INDEX idx_orders_product ON clean.orders USING btree (product_id)
+ orders_pkey          | CREATE UNIQUE INDEX orders_pkey ON clean.orders USING btree (order_id)
+(5 rows)
+
+
+===== Q3 part 2: how selective is the WHERE filter? =====
+ all_orders | matching_orders | pct_matching 
+------------+-----------------+--------------
+        500 |             491 |         98.2
+(1 row)
+
+
+===== Q3 part 3: the ORIGINAL query, real plan, default settings =====
+                                                         QUERY PLAN                                                         
+----------------------------------------------------------------------------------------------------------------------------
+ HashAggregate  (cost=21.77..23.02 rows=100 width=48) (actual time=0.401..0.426 rows=100 loops=1)
+   Group Key: c.customer_name
+   Batches: 1  Memory Usage: 80kB
+   Buffers: shared hit=7
+   ->  Hash Join  (cost=4.25..16.85 rows=492 width=25) (actual time=0.040..0.174 rows=491 loops=1)
+         Hash Cond: (o.customer_id = c.customer_id)
+         Buffers: shared hit=7
+         ->  Seq Scan on orders o  (cost=0.00..11.25 rows=492 width=13) (actual time=0.008..0.062 rows=491 loops=1)
+               Filter: (order_date >= '2025-01-01'::date)
+               Rows Removed by Filter: 9
+               Buffers: shared hit=5
+         ->  Hash  (cost=3.00..3.00 rows=100 width=20) (actual time=0.027..0.028 rows=100 loops=1)
+               Buckets: 1024  Batches: 1  Memory Usage: 14kB
+               Buffers: shared hit=2
+               ->  Seq Scan on customers c  (cost=0.00..3.00 rows=100 width=20) (actual time=0.004..0.014 rows=100 loops=1)
+                     Buffers: shared hit=2
+ Planning:
+   Buffers: shared hit=130
+ Planning Time: 0.351 ms
+ Execution Time: 0.504 ms
+(20 rows)
+
+--- correctness check: does GROUP BY customer_name merge different customers? ---
+ rows_group_by_name | rows_group_by_id 
+--------------------+------------------
+                100 |              100
+(1 row)
+
+--- customer names that belong to more than one customer_id ---
+ customer_name | customers_with_this_name 
+---------------+--------------------------
+(0 rows)
+
+
+===== Q3 part 4: proposed index + rewritten query (rolled back afterwards) =====
+BEGIN
+CREATE INDEX
+SET
+--- original query, index path ---
+                                                                     QUERY PLAN                                                                     
+----------------------------------------------------------------------------------------------------------------------------------------------------
+ HashAggregate  (cost=53.40..54.65 rows=100 width=48) (actual time=1.239..1.262 rows=100 loops=1)
+   Group Key: c.customer_name
+   Batches: 1  Memory Usage: 80kB
+   Buffers: shared hit=8 read=3
+   ->  Hash Join  (cost=35.98..48.48 rows=492 width=25) (actual time=0.513..0.817 rows=491 loops=1)
+         Hash Cond: (o.customer_id = c.customer_id)
+         Buffers: shared hit=8 read=3
+         ->  Bitmap Heap Scan on orders o  (cost=20.09..31.24 rows=492 width=13) (actual time=0.465..0.563 rows=491 loops=1)
+               Recheck Cond: (order_date >= '2025-01-01'::date)
+               Heap Blocks: exact=5
+               Buffers: shared hit=5 read=3
+               ->  Bitmap Index Scan on idx_orders_date  (cost=0.00..19.96 rows=492 width=0) (actual time=0.448..0.449 rows=491 loops=1)
+                     Index Cond: (order_date >= '2025-01-01'::date)
+                     Buffers: shared read=3
+         ->  Hash  (cost=14.64..14.64 rows=100 width=20) (actual time=0.038..0.039 rows=100 loops=1)
+               Buckets: 1024  Batches: 1  Memory Usage: 14kB
+               Buffers: shared hit=3
+               ->  Index Scan using customers_pkey on customers c  (cost=0.14..14.64 rows=100 width=20) (actual time=0.008..0.023 rows=100 loops=1)
+                     Buffers: shared hit=3
+ Planning:
+   Buffers: shared hit=17 read=1
+ Planning Time: 0.667 ms
+ Execution Time: 1.323 ms
+(23 rows)
+
+--- rewritten query: total per customer_id FIRST, join the names AFTER ---
+                                                                     QUERY PLAN                                                                      
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+ Hash Join  (cost=39.80..54.57 rows=100 width=52) (actual time=0.456..0.486 rows=100 loops=1)
+   Hash Cond: (c.customer_id = t.customer_id)
+   Buffers: shared hit=11
+   ->  Index Scan using customers_pkey on customers c  (cost=0.14..14.64 rows=100 width=20) (actual time=0.012..0.024 rows=100 loops=1)
+         Buffers: shared hit=3
+   ->  Hash  (cost=38.41..38.41 rows=100 width=36) (actual time=0.439..0.439 rows=100 loops=1)
+         Buckets: 1024  Batches: 1  Memory Usage: 13kB
+         Buffers: shared hit=8
+         ->  Subquery Scan on t  (cost=36.16..38.41 rows=100 width=36) (actual time=0.390..0.419 rows=100 loops=1)
+               Buffers: shared hit=8
+               ->  HashAggregate  (cost=36.16..37.41 rows=100 width=36) (actual time=0.390..0.411 rows=100 loops=1)
+                     Group Key: orders.customer_id
+                     Batches: 1  Memory Usage: 80kB
+                     Buffers: shared hit=8
+                     ->  Bitmap Heap Scan on orders  (cost=20.09..31.24 rows=492 width=13) (actual time=0.067..0.123 rows=491 loops=1)
+                           Recheck Cond: (order_date >= '2025-01-01'::date)
+                           Heap Blocks: exact=5
+                           Buffers: shared hit=8
+                           ->  Bitmap Index Scan on idx_orders_date  (cost=0.00..19.96 rows=492 width=0) (actual time=0.054..0.054 rows=491 loops=1)
+                                 Index Cond: (order_date >= '2025-01-01'::date)
+                                 Buffers: shared hit=3
+ Planning Time: 0.258 ms
+ Execution Time: 0.529 ms
+(23 rows)
+
+ROLLBACK
+--- proof the test index is gone (must return 0) ---
+ lab_indexes_left 
+------------------
+                0
+(1 row)
+
+
+===== Q3 part 5: the rewritten query, real result (first 10 by revenue) =====
+ customer_id |    customer_name    | total_revenue 
+-------------+---------------------+---------------
+          95 | Miss Olivia Taylor  |      59800.00
+          74 | Mrs Lesley Charlton |      40117.00
+          64 | Mrs Jessica Jackson |      37176.00
+          34 | Aimee Burns         |      33128.00
+          51 | Miss Kirsty Ali     |      30478.00
+          90 | Mr Russell Jennings |      29880.00
+          12 | Sean Norton         |      29246.00
+           1 | William Jennings    |      28778.00
+          53 | Nicole Briggs       |      28623.00
+          86 | Liam Sykes          |      27896.00
+(10 rows)
+
